@@ -29,6 +29,10 @@ func (p *UserHandler) GetAllUsers(rw http.ResponseWriter, h *http.Request) {
 		p.logger.Fatal("Database exception: ", err)
 	}
 
+	if allUsers == nil {
+		return
+	}
+
 	err = allUsers.ToJSON(rw)
 	if err != nil {
 		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
@@ -73,35 +77,7 @@ func (p *UserHandler) PutUser(rw http.ResponseWriter, h *http.Request) {
 
 	user := h.Context().Value(KeyUser{}).(*data.User)
 
-	user.ID = id
-
-	userDb, err := p.repo.Get(id)
-	if err != nil {
-		http.Error(rw, "Database exception", http.StatusInternalServerError)
-		p.logger.Fatal("Database exception:", err)
-		return
-	}
-
-	if userDb == nil {
-		http.Error(rw, "User with given id not found", http.StatusNotFound)
-		p.logger.Printf("User with id: '%s' not found", id)
-		return
-	}
-
-	user, err = p.repo.Put(id, user)
-	if err != nil {
-		http.Error(rw, "Database exception", http.StatusInternalServerError)
-		p.logger.Fatal("Database exception:", err)
-		return
-	}
-
-	err = user.ToJSON(rw)
-	if err != nil {
-		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
-		p.logger.Fatal("Unable to convert to json :", err)
-		return
-	}
-
+	p.repo.Put(id, user)
 	rw.WriteHeader(http.StatusOK)
 }
 
@@ -134,11 +110,11 @@ func (p *UserHandler) MiddlewareUserValidation(next http.Handler) http.Handler {
 			return
 		}
 
-		//err = user.Validate()
+		users, err := p.repo.GetByUsername(user.Username)
 
-		if err != nil {
-			p.logger.Println("Error validating user", err)
-			http.Error(rw, fmt.Sprintf("Error validating user: %s", err), http.StatusBadRequest)
+		if users != nil {
+			p.logger.Println("Error: username exists", err)
+			http.Error(rw, fmt.Sprintf("Error: username exits, %s", err), http.StatusBadRequest)
 			return
 		}
 

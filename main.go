@@ -23,6 +23,7 @@ func main() {
 	//	go run . >> output.txt
 	//
 	logger := log.New(os.Stdout, "[product-api] ", log.LstdFlags)
+	storeLogger := log.New(os.Stdout, "[user-store] ", log.LstdFlags)
 
 	//Reading from environment, if not set we will default it to 8080.
 	//This allows flexibility in different environments (for eg. when running multiple docker api's and want to override the default port)
@@ -31,16 +32,18 @@ func main() {
 		port = "8080"
 	}
 
+	timeoutContext, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
 	//Initialize the repository that uses the actual database. If the in memory counter part is to be used,
 	//swap out the call to 'NewPostgreSql' to 'NewInMemory' and rerun the program.
-	store, err := data.New(logger)
+	store, err := data.New(timeoutContext, storeLogger)
 	if err != nil {
 		logger.Fatal(err)
 	}
+	defer store.Disconnect(timeoutContext)
 
-	if err != nil {
-		logger.Fatal(err)
-	}
+	store.Ping()
 	//Initialize the handler and inject said logger
 	usersHandler := handlers.NewUserHandler(logger, store)
 
@@ -60,7 +63,6 @@ func main() {
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}", usersHandler.PutUser)
-	putRouter.Use(usersHandler.MiddlewareUserValidation)
 
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
 	deleteHandler.HandleFunc("/{id}", usersHandler.DeleteUser)
@@ -98,7 +100,6 @@ func main() {
 	//After that the code will terminate.
 	sig := <-sigCh
 	logger.Println("Received terminate, graceful shutdown", sig)
-	timeoutContext, _ := context.WithTimeout(context.Background(), 30*time.Second)
 
 	//Try to shutdown gracefully
 	if server.Shutdown(timeoutContext) != nil {

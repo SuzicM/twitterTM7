@@ -1,28 +1,34 @@
 package data
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
 	"log"
 	"os"
 	"time"
 
-	"github.com/hashicorp/consul/api"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/mongo/readpref"
 )
 
 type UserRepo struct {
-	cli    *api.Client
+	cli    *mongo.Client
 	logger *log.Logger
 }
 
 // NoSQL: Constructor which reads db configuration from environment
-func New(logger *log.Logger) (*UserRepo, error) {
-	db := os.Getenv("DB")
-	dbport := os.Getenv("DBPORT")
+func New(ctx context.Context, logger *log.Logger) (*UserRepo, error) {
+	dburi := os.Getenv("MONGO_DB_URI")
 
-	config := api.DefaultConfig()
-	config.Address = fmt.Sprintf("%s:%s", db, dbport)
-	client, err := api.NewClient(config)
+	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
+	if err != nil {
+		return nil, err
+	}
+
+	err = client.Connect(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -33,98 +39,148 @@ func New(logger *log.Logger) (*UserRepo, error) {
 	}, nil
 }
 
-// NoSQL: Returns all products
-func (pr *UserRepo) GetAll() (Users, error) {
-	kv := pr.cli.KV()
-	data, _, err := kv.List(all, nil)
+func (ur *UserRepo) Disconnect(ctx context.Context) error {
+	err := ur.cli.Disconnect(ctx)
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (ur *UserRepo) Ping() {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Check connection -> if no error, connection is established
+	err := ur.cli.Ping(ctx, readpref.Primary())
+	if err != nil {
+		ur.logger.Println(err)
+	}
+
+	// Print available databases
+	databases, err := ur.cli.ListDatabaseNames(ctx, bson.M{})
+	if err != nil {
+		ur.logger.Println(err)
+	}
+	fmt.Println(databases)
+}
+
+func (ur *UserRepo) getCollection() *mongo.Collection {
+	patientDatabase := ur.cli.Database("mongoDemo")
+	patientsCollection := patientDatabase.Collection("patients")
+	return patientsCollection
+}
+
+// NoSQL: Returns all products
+func (ur *UserRepo) GetAll() (Users, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	usersCollection := ur.getCollection()
+
+	var users Users
+	patientsCursor, err := usersCollection.Find(ctx, bson.M{})
+	if err != nil {
+		ur.logger.Println(err)
 		return nil, err
 	}
-
-	users := Users{}
-	for _, pair := range data {
-		user := &User{}
-		err = json.Unmarshal(pair.Value, user)
-		if err != nil {
-			return nil, err
-		}
-		users = append(users, user)
+	if err = patientsCursor.All(ctx, &users); err != nil {
+		ur.logger.Println(err)
+		return nil, err
 	}
-
 	return users, nil
 }
 
 // NoSQL: Returns Product by id
-func (pr *UserRepo) Get(id string) (*User, error) {
-	kv := pr.cli.KV()
+func (ur *UserRepo) Get(id string) (*User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	pair, _, err := kv.Get(constructKey(id), nil)
+	usersCollection := ur.getCollection()
+
+	var user User
+	objID, _ := primitive.ObjectIDFromHex(id)
+	err := usersCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
 	if err != nil {
+		ur.logger.Println(err)
 		return nil, err
 	}
-	// If pair is nil -> no object found for given id -> return nil
-	if pair == nil {
-		return nil, nil
-	}
-
-	product := &User{}
-	err = json.Unmarshal(pair.Value, product)
-	if err != nil {
-		return nil, err
-	}
-
-	return product, nil
+	return &user, nil
 }
 
-func (pr *UserRepo) Post(user *User) (*User, error) {
-	kv := pr.cli.KV()
+func (ur *UserRepo) GetByUsername(name string) (Users, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
 
-	user.CreatedOn = time.Now().UTC().String()
-	user.UpdatedOn = time.Now().UTC().String()
+	usersCollection := ur.getCollection()
 
-	dbId, id := generateKey()
-	user.ID = id
-
-	data, err := json.Marshal(user)
+	var users Users
+	usersCursor, err := usersCollection.Find(ctx, bson.M{"username": name})
 	if err != nil {
+		ur.logger.Println(err)
 		return nil, err
 	}
-
-	userKeyValue := &api.KVPair{Key: dbId, Value: data}
-	_, err = kv.Put(userKeyValue, nil)
-	if err != nil {
+	if err = usersCursor.All(ctx, &users); err != nil {
+		ur.logger.Println(err)
 		return nil, err
 	}
-
-	return user, nil
+	return users, nil
 }
 
-func (pr *UserRepo) Put(id string, user *User) (*User, error) {
-	kv := pr.cli.KV()
 
-	user.UpdatedOn = time.Now().UTC().String()
+func (ur *UserRepo) Post(user *User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	usersCollection := ur.getCollection()
 
-	data, err := json.Marshal(user)
+	result, err := usersCollection.InsertOne(ctx, &user)
 	if err != nil {
-		return nil, err
-	}
-
-	userKeyValue := &api.KVPair{Key: constructKey(id), Value: data}
-	_, err = kv.Put(userKeyValue, nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
-}
-
-func (pr *UserRepo) Delete(id string) error {
-	kv := pr.cli.KV()
-
-	_, err := kv.Delete(constructKey(id), nil)
-	if err != nil {
+		ur.logger.Println(err)
 		return err
 	}
+	ur.logger.Printf("Documents ID: %v\n", result.InsertedID)
+	return nil
+}
 
+func (ur *UserRepo) Put(id string, user *User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	usersCollection := ur.getCollection()
+
+	objID, _ := primitive.ObjectIDFromHex(id)
+	filter := bson.M{"_id": objID}
+	update := bson.M{"$set": bson.M{
+		"name":      user.Name,
+		"surname":   user.Surname,
+		"username":  user.Username,
+		"password":  user.Password,
+		"age":       user.Age,
+		"gender":    user.Gender,
+		"residance": user.Residance,
+	}}
+	result, err := usersCollection.UpdateOne(ctx, filter, update)
+	ur.logger.Printf("Documents matched: %v\n", result.MatchedCount)
+	ur.logger.Printf("Documents updated: %v\n", result.ModifiedCount)
+
+	if err != nil {
+		ur.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (ur *UserRepo) Delete(id string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	usersCollection := ur.getCollection()
+
+	objID, _ := primitive.ObjectIDFromHex(id)
+	filter := bson.D{{Key: "_id", Value: objID}}
+	result, err := usersCollection.DeleteOne(ctx, filter)
+	if err != nil {
+		ur.logger.Println(err)
+		return err
+	}
+	ur.logger.Printf("Documents deleted: %v\n", result.DeletedCount)
 	return nil
 }
