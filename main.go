@@ -52,7 +52,7 @@ func main() {
 	router.Use(usersHandler.MiddlewareContentTypeSet)
 
 	getRouter := router.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/", usersHandler.GetOneUser)
+	getRouter.HandleFunc("/user/{id}", usersHandler.GetOneUser)
 
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
 	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
