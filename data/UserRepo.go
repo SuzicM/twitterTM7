@@ -108,18 +108,6 @@ func (ur *UserRepo) Get(id string) (*User, error) {
 	return &user, nil
 }
 
-func (ur *UserRepo) LoginUser(username, password string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	usersCollection := ur.getCollection()
-
-	filterCursor, err := usersCollection.Find(ctx, bson.M{"username": username})
-	if err != nil {
-		log.Fatal(err)
-	}
-	fmt.Println(filterCursor)
-}
-
 // NoSQL: Returns Product by username
 func (ur *UserRepo) GetByUsername(username string) (Users, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

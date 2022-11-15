@@ -52,10 +52,10 @@ func main() {
 	router.Use(usersHandler.MiddlewareContentTypeSet)
 
 	getRouter := router.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/{id}", usersHandler.GetOneUser)
+	getRouter.HandleFunc("/user/{id}", usersHandler.GetOneUser)
 
-	getByUsernameRouter := router.Methods(http.MethodGet).Subrouter()
-	getByUsernameRouter.HandleFunc("/{username}", usersHandler.GetUsername)
+	/*getByUsernameRouter := router.Methods(http.MethodGet).Subrouter()
+	getByUsernameRouter.HandleFunc("/", usersHandler.GetUsername)*/
 
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
 	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
@@ -69,6 +69,12 @@ func main() {
 
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
 	deleteHandler.HandleFunc("/{id}", usersHandler.DeleteUser)
+
+	loginHandler := router.Methods(http.MethodPost).Subrouter()
+	loginHandler.HandleFunc("/login", usersHandler.LoginUser)
+
+	logoutHandler := router.Methods(http.MethodPost).Subrouter()
+	logoutHandler.HandleFunc("/logout", usersHandler.LogoutUser)
 
 	//Set cors. Generally you wouldn't like to set cors to a "*". It is a wildcard and it will match any source.
 	//Normally you would set this to a set of ip's you want this api to serve. If you have an associated frontend app

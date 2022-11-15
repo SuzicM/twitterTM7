@@ -2,7 +2,10 @@ module registration/twitterTM7
 
 go 1.17
 
-require github.com/gorilla/handlers v1.5.1
+require (
+	github.com/gorilla/handlers v1.5.1
+	github.com/gorilla/securecookie v1.1.1
+)
 
 require (
 	github.com/golang/snappy v0.0.1 // indirect

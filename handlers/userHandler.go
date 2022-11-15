@@ -3,11 +3,11 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/securecookie"
 	"log"
 	"net/http"
 	"registration/twitterTM7/data"
-
-	"github.com/gorilla/mux"
 )
 
 type KeyUser struct{}
@@ -158,4 +158,66 @@ func (p *UserHandler) MiddlewareContentTypeSet(next http.Handler) http.Handler {
 
 		next.ServeHTTP(rw, h)
 	})
+}
+
+func (p *UserHandler) LoginUser(rw http.ResponseWriter, h *http.Request) {
+	name := h.FormValue("name")
+	pass := h.FormValue("password")
+	redirectTarget := "/"
+	if name != "" && pass != "" {
+		/*users, err := p.repo.GetByUsername(name)
+		if err != nil {
+			http.Error(response, err.Error(), http.StatusBadRequest)
+			p.logger.Fatal("Unable to delete user.", err)
+			return
+		}
+		*/
+
+		setSession(name, rw)
+		redirectTarget = "/internal"
+	}
+	http.Redirect(rw, h, redirectTarget, 302)
+}
+
+func (p *UserHandler) LogoutUser(response http.ResponseWriter, request *http.Request) {
+	clearSession(response)
+	http.Redirect(response, request, "/", 302)
+}
+
+var cookieHandler = securecookie.New(
+	securecookie.GenerateRandomKey(64),
+	securecookie.GenerateRandomKey(32))
+
+func (p *UserHandler) getUserName(request *http.Request) (userName string) {
+	if cookie, err := request.Cookie("session"); err == nil {
+		cookieValue := make(map[string]string)
+		if err = cookieHandler.Decode("session", cookie.Value, &cookieValue); err == nil {
+			userName = cookieValue["name"]
+		}
+	}
+	return userName
+}
+
+func setSession(userName string, response http.ResponseWriter) {
+	value := map[string]string{
+		"name": userName,
+	}
+	if encoded, err := cookieHandler.Encode("session", value); err == nil {
+		cookie := &http.Cookie{
+			Name:  "session",
+			Value: encoded,
+			Path:  "/",
+		}
+		http.SetCookie(response, cookie)
+	}
+}
+
+func clearSession(response http.ResponseWriter) {
+	cookie := &http.Cookie{
+		Name:   "session",
+		Value:  "",
+		Path:   "/",
+		MaxAge: -1,
+	}
+	http.SetCookie(response, cookie)
 }
