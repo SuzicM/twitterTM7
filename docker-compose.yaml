@@ -1,28 +1,43 @@
 version: "3.1"
 
 services:
+  #Our service.
   server:
     build:
       context: .
       dockerfile: Dockerfile
     restart: always
-    container_name: "user-server"
-    hostname: "user-server"
+    container_name: "student-server"
+    hostname: "student-server"
+    #Mapping ports
     ports:
+      # <port_on_local>:<port_in_machine>
       - 8080:8080
+    #Will be accessible through os.Getenv("PORT")
     environment:
       - PORT=8080
-      - DB=consul
-      - DBPORT=8500
+      # NoSQL: environment variable holding connection URI for Cassandra database
+      - CASS_DB=cassandra:9042
+    # NoSQL: Extremely important! Cassandra takes a lot of time to start!
+    # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
     depends_on:
-      - consul
+      cassandra:
+        condition: service_healthy
 
-  consul:
-    image: consul
+  # NoSQL: CassandraDB
+  cassandra:
+    image: cassandra
+    restart: always
     ports:
-      - "8500:8500"
-      - "8600:8600/tcp"
-      - "8600:8600/udp"
-    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+      - "9042:9042"
+    # Docker healtcheck - checks if database is "alive"
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+      interval: 15s
+      timeout: 5s
+      retries: 15
     volumes:
-      - ./consul_store:/consul/data
+      - cass_store:/var/lib/cassandra/data
+
+volumes:
+  cass_store:
