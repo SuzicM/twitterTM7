@@ -52,20 +52,26 @@ func main() {
 	router.Use(usersHandler.MiddlewareContentTypeSet)
 
 	getRouter := router.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/user/{id}", usersHandler.GetOneUser)
+	getRouter.HandleFunc("/api/user/{id}", usersHandler.GetOneUser)
 
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
-	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
+	getAllRouter.HandleFunc("/user/all", usersHandler.GetAllUsers)
+
+	getProfileRouter := router.Methods(http.MethodGet).Subrouter()
+	getProfileRouter.HandleFunc("/api/profile/{id}/", usersHandler.GetUserProfile)
+
+	posttRouter := router.Methods(http.MethodPost).Subrouter()
+	posttRouter.HandleFunc("/api/user/tweet/", usersHandler.PostTweet)
 
 	postRouter := router.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/", usersHandler.PostUser)
+	postRouter.HandleFunc("/api/user/register/", usersHandler.PostUser)
 	postRouter.Use(usersHandler.MiddlewareUserValidation)
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}", usersHandler.PutUser)
 
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
-	deleteHandler.HandleFunc("/{id}", usersHandler.DeleteUser)
+	deleteHandler.HandleFunc("/user/{id}", usersHandler.DeleteUser)
 
 	//Set cors. Generally you wouldn't like to set cors to a "*". It is a wildcard and it will match any source.
 	//Normally you would set this to a set of ip's you want this api to serve. If you have an associated frontend app

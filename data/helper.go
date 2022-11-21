@@ -1,7 +1,9 @@
 package data
 
 import (
+	"encoding/json"
 	"fmt"
+	"io"
 
 	"github.com/google/uuid"
 )
@@ -18,4 +20,15 @@ func generateKey() (string, string) {
 
 func constructKey(id string) string {
 	return fmt.Sprintf(users, id)
+}
+
+func decodeBodyGroup(r io.Reader) (*Tweet, error) {
+	dec := json.NewDecoder(r)
+	dec.DisallowUnknownFields()
+
+	var rt *Tweet
+	if err := dec.Decode(&rt); err != nil {
+		return nil, err
+	}
+	return rt, nil
 }

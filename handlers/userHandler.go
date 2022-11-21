@@ -65,9 +65,43 @@ func (p *UserHandler) GetOneUser(rw http.ResponseWriter, h *http.Request) {
 	}
 }
 
+func (p *UserHandler) GetUserProfile(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	id := vars["id"]
+	var profile data.Profile
+
+	user, tweets, err := p.repo.GetUserProfile(id)
+	if err != nil {
+		http.Error(rw, "Database exception", http.StatusInternalServerError)
+		p.logger.Fatal("Database exception: ", err)
+	}
+
+	if user == nil {
+		http.Error(rw, "User with given id not found", http.StatusNotFound)
+		p.logger.Printf("User with id: '%s' not found", id)
+		return
+	}
+
+	profile.User = *user
+	profile.Tweets = tweets
+
+	err = profile.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		p.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
 func (p *UserHandler) PostUser(rw http.ResponseWriter, h *http.Request) {
 	user := h.Context().Value(KeyUser{}).(*data.User)
 	p.repo.Post(user)
+	rw.WriteHeader(http.StatusCreated)
+}
+
+func (p *UserHandler) PostTweet(rw http.ResponseWriter, h *http.Request) {
+	user := h.Context().Value(KeyUser{}).(*data.Tweet)
+	p.repo.PostTweet(user)
 	rw.WriteHeader(http.StatusCreated)
 }
 
@@ -107,6 +141,12 @@ func (p *UserHandler) MiddlewareUserValidation(next http.Handler) http.Handler {
 		if err != nil {
 			http.Error(rw, "Unable to decode json", http.StatusBadRequest)
 			p.logger.Fatal(err)
+			return
+		}
+
+		if !p.repo.ValidateUser(user) {
+			p.logger.Println("Error: Some of the input values for user data are not correct")
+			http.Error(rw, fmt.Sprintf("Error: Some of the input values for user data are not correct"), http.StatusBadRequest)
 			return
 		}
 
