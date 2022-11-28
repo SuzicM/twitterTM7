@@ -1,4 +1,4 @@
-package twitterTM7
+package main
 
 import (
 	"context"
@@ -43,15 +43,27 @@ func main() {
 
 	//Initialize the router and add a middleware for all the requests
 	router := mux.NewRouter()
+	router.Use(tweetsHandler.MiddlewareContentTypeSet)
 
 	getTweetIds := router.Methods(http.MethodGet).Subrouter()
-	getTweetIds.HandleFunc("/tweets", tweetsHandler.GetAllTweetIds)
+	getTweetIds.HandleFunc("/tweets/", tweetsHandler.GetAllTweetIds)
+
+	getTweetUsernames := router.Methods(http.MethodGet).Subrouter()
+	getTweetUsernames.HandleFunc("/usernames/", tweetsHandler.GetAllTweetUsernames)
 
 	getTweetsByUser := router.Methods(http.MethodGet).Subrouter()
-	getTweetsByUser.HandleFunc("/tweets/{id}", tweetsHandler.GetTweetsByUser)
+	getTweetsByUser.HandleFunc("/tweet/{id}/", tweetsHandler.GetTweetsByUser)
+
+	getTweetsByUsername := router.Methods(http.MethodGet).Subrouter()
+	getTweetsByUsername.HandleFunc("/usernames/tweet/{username}/", tweetsHandler.GetTweetsByUsername)
 
 	postTweetForUser := router.Methods(http.MethodPost).Subrouter()
-	postTweetForUser.HandleFunc("/tweets", tweetsHandler.CreateTweetForUser)
+	postTweetForUser.HandleFunc("/tweet/", tweetsHandler.CreateTweetForUser)
+	postTweetForUser.Use(tweetsHandler.MiddlewareTweetsForUserDeserialization)
+
+	postTweetForUsername := router.Methods(http.MethodPost).Subrouter()
+	postTweetForUsername.HandleFunc("/tweet/username/", tweetsHandler.CreateTweetForUsername)
+	postTweetForUsername.Use(tweetsHandler.MiddlewareTweetsForUsernameDeserialization)
 
 	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"*"}))
 
@@ -60,8 +72,8 @@ func main() {
 		Addr:         ":" + port,
 		Handler:      cors(router),
 		IdleTimeout:  120 * time.Second,
-		ReadTimeout:  1 * time.Second,
-		WriteTimeout: 1 * time.Second,
+		ReadTimeout:  5 * time.Second,
+		WriteTimeout: 5 * time.Second,
 	}
 
 	logger.Println("Server listening on port", port)

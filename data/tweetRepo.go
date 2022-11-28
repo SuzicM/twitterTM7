@@ -27,13 +27,13 @@ func New(logger *log.Logger) (*TweetRepo, error) {
 		logger.Println(err)
 		return nil, err
 	}
-	// Create 'student' keyspace
+	// Create 'tweet' keyspace
 	err = session.Query(
 		fmt.Sprintf(`CREATE KEYSPACE IF NOT EXISTS %s
 					WITH replication = {
 						'class' : 'SimpleStrategy',
 						'replication_factor' : %d
-					}`, "student", 1)).Exec()
+					}`, "tweet", 1)).Exec()
 	if err != nil {
 		logger.Println(err)
 	}
@@ -63,8 +63,21 @@ func (sr *TweetRepo) CloseSession() {
 // Create tables
 func (sr *TweetRepo) CreateTables() {
 	err := sr.session.Query(
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (user_id UUID, tweet_title text, tweet_body text, tweet_id TIMEUUID PRIMARY KEY ((user_id), tweet_id)) WITH CLUSTERING ORDER BY (tweet_id ASC)`,
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s 
+		(user_id UUID, tweet_title text, tweet_body text, created_on TIMEUUID,
+		PRIMARY KEY ((user_id), created_on)) 
+		WITH CLUSTERING ORDER BY (created_on ASC)`,
 			"tweets_by_user")).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+	}
+
+	err = sr.session.Query(
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s 
+		(username text, tweet_title text, tweet_body text, created_on TIMEUUID,
+		PRIMARY KEY ((username), created_on)) 
+		WITH CLUSTERING ORDER BY (created_on ASC)`,
+			"tweets_by_username")).Exec()
 	if err != nil {
 		sr.logger.Println(err)
 	}
@@ -72,17 +85,39 @@ func (sr *TweetRepo) CreateTables() {
 
 // TO DO
 func (sr *TweetRepo) GetTweetsByUser(id string) (TweetsByUser, error) {
-	scanner := sr.session.Query(`SELECT user_id, tweet_title, tweet_body, toTimestamp(tweet_id) FROM tweets_by_user WHERE user_id = ?`,
+	scanner := sr.session.Query(`SELECT user_id, tweet_title, tweet_body, created_on FROM tweets_by_user WHERE user_id = ?`,
 		id).Iter().Scanner()
 
 	var tweets TweetsByUser
 	for scanner.Next() {
 		var tweet TweetByUser
-		err := scanner.Scan(&tweet.UserId, &tweet.TweetTitle, &tweet.TweetBody)
+		err := scanner.Scan(&tweet.UserId, &tweet.TweetTitle, &tweet.TweetBody, &tweet.CreatedOn)
 		if err != nil {
 			sr.logger.Println(err)
 			return tweets, err
 		}
+		tweets = append(tweets, &tweet)
+	}
+	if err := scanner.Err(); err != nil {
+		sr.logger.Println(err)
+		return tweets, err
+	}
+	return tweets, nil
+}
+
+func (sr *TweetRepo) GetTweetsByUsername(id string) (TweetsByUsername, error) {
+	scanner := sr.session.Query(`SELECT username, tweet_title, tweet_body, created_on FROM tweets_by_username WHERE username = ?`,
+		id).Iter().Scanner()
+
+	var tweets TweetsByUsername
+	for scanner.Next() {
+		var tweet TweetByUsername
+		err := scanner.Scan(&tweet.Username, &tweet.TweetTitle, &tweet.TweetBody, &tweet.CreatedOn)
+		if err != nil {
+			sr.logger.Println(err)
+			return tweets, err
+		}
+		tweets = append(tweets, &tweet)
 	}
 	if err := scanner.Err(); err != nil {
 		sr.logger.Println(err)
@@ -92,11 +127,25 @@ func (sr *TweetRepo) GetTweetsByUser(id string) (TweetsByUser, error) {
 }
 
 func (sr *TweetRepo) InsertTweetByUser(userTweet *TweetByUser) error {
-	tweetId := gocql.TimeUUID()
+	userid, _ := gocql.RandomUUID()
+	created := gocql.TimeUUID()
 	err := sr.session.Query(
-		`INSERT INTO tweets_by_user (user_id, tweet_title, tweet_body, tweet_id) 
-		VALUES (?, ?, ?)`,
-		userTweet.UserId, userTweet.TweetTitle, userTweet.TweetBody, tweetId).Exec()
+		`INSERT INTO tweets_by_user (user_id, tweet_title, tweet_body, created_on) 
+		VALUES (?, ?,  ?, ?)`,
+		userid, userTweet.TweetTitle, userTweet.TweetBody, created).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (sr *TweetRepo) InsertTweetByUsername(userTweet *TweetByUsername) error {
+	created := gocql.TimeUUID()
+	err := sr.session.Query(
+		`INSERT INTO tweets_by_username (username, tweet_title, tweet_body, created_on) 
+		VALUES ( ?, ?, ?, ?)`,
+		userTweet.Username, userTweet.TweetTitle, userTweet.TweetBody, created).Exec()
 	if err != nil {
 		sr.logger.Println(err)
 		return err
