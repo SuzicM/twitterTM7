@@ -3,13 +3,12 @@ package data
 import (
 	"context"
 	"fmt"
+	"golang.org/x/crypto/bcrypt"
 	"log"
 	"os"
 	"regexp"
 	"time"
 	"unicode"
-
-	"golang.org/x/crypto/bcrypt"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -257,6 +256,8 @@ func CheckPasswordHash(password, hash string) bool {
 	return err == nil
 }
 
+//  Validation
+
 func IsAlnumOrHyphen(s string) bool {
 	for _, r := range s {
 		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
@@ -345,3 +346,5 @@ func (ur *UserRepo) ValidateUser(user *User) bool {
 	}
 	return true
 }
+
+//--------------------------------------------------

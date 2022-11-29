@@ -2,17 +2,34 @@ package main
 
 import (
 	"context"
+	"github.com/gin-gonic/gin"
+	"go.mongodb.org/mongo-driver/mongo"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"registration/twitterTM7/controllers"
 	"registration/twitterTM7/data"
 	"registration/twitterTM7/handlers"
+	"registration/twitterTM7/routes"
+	"registration/twitterTM7/services"
 	"syscall"
 	"time"
 
 	gorillaHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+)
+
+var (
+	server      *gin.Engine
+	ctx         context.Context
+	mongoclient *mongo.Client
+
+	userService         services.UserService
+	authCollection      *mongo.Collection
+	authService         services.AuthService
+	AuthController      controllers.AuthController
+	AuthRouteController routes.AuthRouteController
 )
 
 func main() {
@@ -73,6 +90,8 @@ func main() {
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
 	deleteHandler.HandleFunc("/user/{id}", usersHandler.DeleteUser)
 
+	routerw := server.Group("/api")
+	AuthRouteController.AuthRoute(routerw, userService)
 	//Set cors. Generally you wouldn't like to set cors to a "*". It is a wildcard and it will match any source.
 	//Normally you would set this to a set of ip's you want this api to serve. If you have an associated frontend app
 	//you would put the ip of the server where the frontend is running. The only time you don't need cors is when you

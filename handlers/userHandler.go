@@ -3,11 +3,10 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 	"registration/twitterTM7/data"
-
-	"github.com/gorilla/mux"
 )
 
 type KeyUser struct{}
@@ -21,7 +20,7 @@ func NewUserHandler(l *log.Logger, r *data.UserRepo) *UserHandler {
 	return &UserHandler{l, r}
 }
 
-//Gets all of the users in the database
+// Gets all of the users in the database
 func (p *UserHandler) GetAllUsers(rw http.ResponseWriter, h *http.Request) {
 	allUsers, err := p.repo.GetAll()
 	if err != nil {
