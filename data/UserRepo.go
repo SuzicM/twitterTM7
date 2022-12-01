@@ -5,12 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"regexp"
+	"registration/twitterTM7/utils"
 	"time"
-	"unicode"
 
-	"golang.org/x/crypto/bcrypt"
-
+	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -70,9 +68,9 @@ func (ur *UserRepo) Ping() {
 }
 
 func (ur *UserRepo) getCollection() *mongo.Collection {
-	patientDatabase := ur.cli.Database("mongoDemo")
-	patientsCollection := patientDatabase.Collection("patients")
-	return patientsCollection
+	userDatabase := ur.cli.Database("user_database")
+	usersCollection := userDatabase.Collection("users")
+	return usersCollection
 }
 
 func (ur *UserRepo) getVerificationCollection() *mongo.Collection {
@@ -145,9 +143,9 @@ func (ur *UserRepo) Get(id string) (*User, error) {
 }
 
 func (ur *UserRepo) GetByUsername(name string) (Users, error) {
+
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-
 	usersCollection := ur.getCollection()
 
 	var users Users
@@ -163,71 +161,15 @@ func (ur *UserRepo) GetByUsername(name string) (Users, error) {
 	return users, nil
 }
 
-func (ur *UserRepo) GetAllTweetsByUser(username string) (Tweets, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	usersCollection := ur.getCollection()
-
-	var tweets Tweets
-	tweetsCursor, err := usersCollection.Find(ctx, bson.M{"usernametw": username})
-	if err != nil {
-		ur.logger.Println(err)
-		return nil, err
-	}
-	if err = tweetsCursor.All(ctx, &tweets); err != nil {
-		ur.logger.Println(err)
-		return nil, err
-	}
-	return tweets, nil
-}
-
-func (ur *UserRepo) GetUserProfile(id string) (*User, Tweets, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	usersCollection := ur.getCollection()
-
-	var user User
-	objID, _ := primitive.ObjectIDFromHex(id)
-	err := usersCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
-	if err != nil {
-		ur.logger.Println(err)
-		return nil, nil, err
-	}
-
-	tweets, err := ur.GetAllTweetsByUser(user.Username)
-	if err != nil {
-		ur.logger.Println(err)
-		return nil, nil, err
-	}
-
-	return &user, tweets, nil
-}
-
 func (ur *UserRepo) Post(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	usersCollection := ur.getCollection()
-	tempPass := user.Password
+	//tempPass := user.Password
 
-	user.Password, _ = HashPassword(tempPass)
+	user.Password, _ = HashPassword(user.Password)
 
 	result, err := usersCollection.InsertOne(ctx, &user)
-	if err != nil {
-		ur.logger.Println(err)
-		return err
-	}
-	ur.logger.Printf("Documents ID: %v\n", result.InsertedID)
-	return nil
-}
-
-func (ur *UserRepo) PostTweet(tweet *Tweet) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	usersCollection := ur.getCollection()
-
-	result, err := usersCollection.InsertOne(ctx, &tweet)
 	if err != nil {
 		ur.logger.Println(err)
 		return err
@@ -279,80 +221,6 @@ func (ur *UserRepo) Delete(id string) error {
 	return nil
 }
 
-func HashPassword(password string) (string, error) {
-	bytes, err := bcrypt.GenerateFromPassword([]byte(password), 14)
-	return string(bytes), err
-}
-
-func CheckPasswordHash(password, hash string) bool {
-	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	return err == nil
-}
-
-func IsAlnumOrHyphen(s string) bool {
-	for _, r := range s {
-		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
-			return false
-		}
-	}
-	return true
-}
-
-func ValidatePassword(s string) bool {
-	pass := 0
-	for _, c := range s {
-		switch {
-		case unicode.IsNumber(c):
-			pass++
-		case unicode.IsUpper(c):
-			pass++
-		case unicode.IsPunct(c):
-			pass++
-		case unicode.IsLower(c):
-			pass++
-		case unicode.IsLetter(c) || c == ' ':
-			pass++
-		default:
-			return false
-		}
-	}
-	return pass == len(s)
-}
-
-func ValidateName(user *User) bool {
-	reg, _ := regexp.Compile("^[a-zA-Z]+$")
-	match := reg.MatchString(user.Name)
-	return match
-}
-
-func ValidateLastName(user *User) bool {
-	reg, _ := regexp.Compile("^[a-zA-Z]+$")
-	match := reg.MatchString(user.Surname)
-	return match
-}
-
-func ValidateGender(user *User) bool {
-	reg, _ := regexp.Compile("^[a-zA-Z]+$")
-	match := reg.MatchString(user.Gender)
-	return match
-}
-
-func ValidateResidance(user *User) bool {
-	reg, _ := regexp.Compile("^[a-z]+([a-zA-Z0-9]+)$")
-	match := reg.MatchString(user.Gender)
-	return match
-}
-
-func ValidateAge(user *User) bool {
-	reg, _ := regexp.Compile("^[0-9]+$")
-	match := reg.MatchString(user.Age)
-	return match
-}
-
-func ValidateUsername(user *User) bool {
-	return IsAlnumOrHyphen(user.Username)
-}
-
 func (ur *UserRepo) ValidateUser(user *User) bool {
 	if !ValidateAge(user) {
 		return false
@@ -376,4 +244,43 @@ func (ur *UserRepo) ValidateUser(user *User) bool {
 		return false
 	}
 	return true
+}
+
+func (ur *UserRepo) LogInUser(user *SignInData) (string, string, error) {
+	logged, err := ur.GetByUsername(user.Username)
+	if err != nil {
+		ur.logger.Println(err)
+		return "", "", err
+	}
+
+	key := os.Getenv("ACCESS_TOKEN_PRIVATE_KEY")
+	refresh := os.Getenv("REFRESH_TOKEN_PRIVATE_KEY")
+	var access_token string
+	var refresh_token string
+
+	for _, password := range logged {
+		if !CheckPasswordHash(user.Password, password.Password) {
+			return "", "", err
+		}
+		access_token, err = utils.CreateToken(time.Hour, user.Username, key)
+		if err != nil {
+			ur.logger.Println(err)
+			return "", "", err
+		}
+
+		refresh_token, err = utils.CreateToken(time.Hour, user.Username, refresh)
+		if err != nil {
+			ur.logger.Println(err)
+			return "", "", err
+		}
+
+	}
+
+	return access_token, refresh_token, nil
+}
+
+func (ur *UserRepo) GetLoggedUser(s *sessions.Session) string {
+	val := s.Values["user"]
+	user := val.(string)
+	return user
 }
