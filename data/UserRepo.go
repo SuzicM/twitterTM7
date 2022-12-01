@@ -75,6 +75,38 @@ func (ur *UserRepo) getCollection() *mongo.Collection {
 	return patientsCollection
 }
 
+func (ur *UserRepo) getVerificationCollection() *mongo.Collection {
+	verificationDatabase := ur.cli.Database("mongoDemo")
+	verification := verificationDatabase.Collection("verification")
+	return verification
+}
+func (ur *UserRepo) SaveVerification(verificationId string, username string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	verification := ur.getVerificationCollection()
+
+	_, err := verification.InsertOne(ctx, Verification{VerificationId: verificationId, Username: username})
+	if err != nil {
+		ur.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (ur *UserRepo) GetVerification(verificationId string) (Verification, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	verification := ur.getVerificationCollection()
+
+	var verificationRes Verification
+	err := verification.FindOne(ctx, bson.M{"verificationId": verificationId}).Decode(&verificationRes)
+	if err != nil {
+		ur.logger.Println(err)
+		return Verification{}, err
+	}
+	return verificationRes, nil
+}
+
 // NoSQL: Returns all products
 func (ur *UserRepo) GetAll() (Users, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

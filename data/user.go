@@ -32,6 +32,11 @@ type Profile struct {
 	Tweets Tweets
 }
 
+type Verification struct {
+	VerificationId string
+	Username       string
+}
+
 type Users []*User
 
 func (p *Tweets) ToJSON(w io.Writer) error {

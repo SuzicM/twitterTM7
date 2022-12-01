@@ -14,8 +14,7 @@ services:
       - PORT=8080
       - MONGO_DB_URI=mongodb://root:pass@mongo:27017
     depends_on:
-      mongo:
-        condition: service_healthy
+      - mongo
 
   mongo:
     image: mongo

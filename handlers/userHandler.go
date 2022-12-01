@@ -3,8 +3,10 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"github.com/google/uuid"
 	"log"
 	"net/http"
+	"net/smtp"
 	"registration/twitterTM7/data"
 
 	"github.com/gorilla/mux"
@@ -92,10 +94,34 @@ func (p *UserHandler) GetUserProfile(rw http.ResponseWriter, h *http.Request) {
 		return
 	}
 }
+func (p *UserHandler) SendVerificationEmail(email string, verificationId string) error {
+	from := "primjerprojekat@gmail.com"
+	password := "uulzldoackrqmvtx"
+	to := []string{
+		"rstruzica98@gmail.com", //email
+	}
+	smtpHost := "smtp.gmail.com"
+	smtpPort := "587"
+
+	message := []byte(fmt.Sprintf("For verification please click on link: http://localhost:4200/verification/%s to verify registration.", verificationId))
+	auth := smtp.PlainAuth("", from, password, smtpHost)
+	err := smtp.SendMail(smtpHost+":"+smtpPort, auth, from, to, message)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return nil
+}
 
 func (p *UserHandler) PostUser(rw http.ResponseWriter, h *http.Request) {
+
 	user := h.Context().Value(KeyUser{}).(*data.User)
+	log.Println("radii")
 	p.repo.Post(user)
+	verificationId := uuid.New().String()
+	p.repo.SaveVerification(verificationId, user.Username)
+	p.SendVerificationEmail("rstruzica98@gmail.com", verificationId) //user.Email
+
 	rw.WriteHeader(http.StatusCreated)
 }
 
