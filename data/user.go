@@ -19,35 +19,14 @@ type User struct {
 	Residance string             `bson:"residance" json:"residance" validate:"required"`
 }
 
-type Tweet struct {
-	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Username string             `bson:"usernametw" json:"usernametw" validate:"required"`
-	Body     string             `bson:"body" json:"body" validate:"required"`
+type SignInData struct{
+	Username  string             `json:"username" validate:"required"`
+	Password  string             `json:"password" validate:"required"`
 }
 
-type Tweets []*Tweet
-
-type Profile struct {
-	User   User
-	Tweets Tweets
-}
 
 type Users []*User
 
-func (p *Tweets) ToJSON(w io.Writer) error {
-	e := json.NewEncoder(w)
-	return e.Encode(p)
-}
-
-func (p *Tweet) ToJSON(w io.Writer) error {
-	e := json.NewEncoder(w)
-	return e.Encode(p)
-}
-
-func (p *Tweet) FromJSON(r io.Reader) error {
-	d := json.NewDecoder(r)
-	return d.Decode(p)
-}
 
 func (p *Users) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
@@ -64,7 +43,12 @@ func (p *User) FromJSON(r io.Reader) error {
 	return d.Decode(p)
 }
 
-func (p *Profile) ToJSON(w io.Writer) error {
+func (p *SignInData) FromJSON(r io.Reader) error {
+	d := json.NewDecoder(r)
+	return d.Decode(p)
+}
+
+func (p *SignInData) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
 	return e.Encode(p)
 }

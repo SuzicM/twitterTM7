@@ -13,6 +13,8 @@ import (
 
 	gorillaHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -22,12 +24,13 @@ func main() {
 	//
 	//	go run . >> output.txt
 	//
-	logger := log.New(os.Stdout, "[product-api] ", log.LstdFlags)
+	logger := log.New(os.Stdout, "[user-api] ", log.LstdFlags)
 	storeLogger := log.New(os.Stdout, "[user-store] ", log.LstdFlags)
+	err := godotenv.Load(".env")
 
 	//Reading from environment, if not set we will default it to 8080.
 	//This allows flexibility in different environments (for eg. when running multiple docker api's and want to override the default port)
-	port := os.Getenv("app_port")
+	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"
 	}
@@ -43,9 +46,16 @@ func main() {
 	}
 	defer store.Disconnect(timeoutContext)
 
+	cookies := sessions.NewCookieStore([]byte("super-secret"))
+	cookies.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   60 * 15,
+		HttpOnly: true,
+	}
+
 	store.Ping()
 	//Initialize the handler and inject said logger
-	usersHandler := handlers.NewUserHandler(logger, store)
+	usersHandler := handlers.NewUserHandler(logger, store, cookies)
 
 	//Initialize the router and add a middleware for all the requests
 	router := mux.NewRouter()
@@ -57,15 +67,19 @@ func main() {
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
 	getAllRouter.HandleFunc("/user/all", usersHandler.GetAllUsers)
 
-	getProfileRouter := router.Methods(http.MethodGet).Subrouter()
-	getProfileRouter.HandleFunc("/api/profile/{id}/", usersHandler.GetUserProfile)
-
-	posttRouter := router.Methods(http.MethodPost).Subrouter()
-	posttRouter.HandleFunc("/api/user/tweet/", usersHandler.PostTweet)
+	getLogged := router.Methods(http.MethodGet).Subrouter()
+	getLogged.HandleFunc("/current-user/", usersHandler.GetLogged)
 
 	postRouter := router.Methods(http.MethodPost).Subrouter()
 	postRouter.HandleFunc("/api/user/register/", usersHandler.PostUser)
 	postRouter.Use(usersHandler.MiddlewareUserValidation)
+
+	logInRouter := router.Methods(http.MethodPost).Subrouter()
+	logInRouter.HandleFunc("/login/user/", usersHandler.LogInUser)
+	logInRouter.Use(usersHandler.MiddlewareDataDeserialization)
+
+	logOutRouter := router.Methods(http.MethodGet).Subrouter()
+	logOutRouter.HandleFunc("/login/user/", usersHandler.LogoutUser)
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}", usersHandler.PutUser)
@@ -84,8 +98,8 @@ func main() {
 		Addr:         ":" + port,        // Addr optionally specifies the TCP address for the server to listen on, in the form "host:port". If empty, ":http" (port 80) is used.
 		Handler:      cors(router),      // handler to invoke, http.DefaultServeMux if nil
 		IdleTimeout:  120 * time.Second, // IdleTimeout is the maximum amount of time to wait for the next request when keep-alives are enabled.
-		ReadTimeout:  1 * time.Second,   // ReadTimeout is the maximum duration for reading the entire request, including the body. A zero or negative value means there will be no timeout.
-		WriteTimeout: 1 * time.Second,   // WriteTimeout is the maximum duration before timing out writes of the response.
+		ReadTimeout:  5 * time.Second,   // ReadTimeout is the maximum duration for reading the entire request, including the body. A zero or negative value means there will be no timeout.
+		WriteTimeout: 5 * time.Second,   // WriteTimeout is the maximum duration before timing out writes of the response.
 	}
 
 	logger.Println("Server listening on port", port)
