@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"twitterTM7/data"
 
 	"github.com/gorilla/mux"
@@ -33,7 +34,6 @@ func (s *TweetHandler) GetAllTweetIds(rw http.ResponseWriter, h *http.Request) {
 	if tweetIds == nil {
 		return
 	}
-
 	s.logger.Println(tweetIds)
 
 	e := json.NewEncoder(rw)
@@ -56,7 +56,11 @@ func (s *TweetHandler) GetAllTweetUsernames(rw http.ResponseWriter, h *http.Requ
 	}
 
 	s.logger.Println(tweetIds)
-
+	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUsername)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i16", "<")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i12", ">")
+	userTweet.TweetBody = userTweetChanged
 	e := json.NewEncoder(rw)
 	err = e.Encode(tweetIds)
 	if err != nil {
@@ -78,7 +82,11 @@ func (s *TweetHandler) GetTweetsByUser(rw http.ResponseWriter, h *http.Request) 
 	if tweetsByUser == nil {
 		return
 	}
-
+	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUser)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i16", "<")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i12", ">")
+	userTweet.TweetBody = userTweetChanged
 	err = tweetsByUser.ToJSON(rw)
 	if err != nil {
 		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
@@ -90,7 +98,6 @@ func (s *TweetHandler) GetTweetsByUser(rw http.ResponseWriter, h *http.Request) 
 func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Request) {
 	vars := mux.Vars(h)
 	username := vars["username"]
-
 	tweetsByUsername, err := s.repo.GetTweetsByUsername(username)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
@@ -99,7 +106,11 @@ func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Reque
 	if tweetsByUsername == nil {
 		return
 	}
-
+	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUsername)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i16", "<")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "i12", ">")
+	userTweet.TweetBody = userTweetChanged
 	err = tweetsByUsername.ToJSON(rw)
 	if err != nil {
 		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
@@ -110,6 +121,10 @@ func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Reque
 
 func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUser)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "<", "i16")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, ">", "i12")
+	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUser(userTweet)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
@@ -121,6 +136,10 @@ func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Reques
 
 func (s *TweetHandler) CreateTweetForUsername(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUsername)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "<", "i16")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, ">", "i12")
+	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUsername(userTweet)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
