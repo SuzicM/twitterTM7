@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 
 	// NoSQL: module containing Cassandra api client
 	"github.com/gocql/gocql"
@@ -96,6 +97,10 @@ func (sr *TweetRepo) GetTweetsByUser(id string) (TweetsByUser, error) {
 			sr.logger.Println(err)
 			return tweets, err
 		}
+		userTweetChanged := tweet.TweetBody
+		userTweetChanged = strings.ReplaceAll(userTweetChanged, "i16", "<")
+		userTweetChanged = strings.ReplaceAll(userTweetChanged, "i12", ">")
+		tweet.TweetBody = userTweetChanged
 		tweets = append(tweets, &tweet)
 	}
 	if err := scanner.Err(); err != nil {
@@ -117,6 +122,10 @@ func (sr *TweetRepo) GetTweetsByUsername(id string) (TweetsByUsername, error) {
 			sr.logger.Println(err)
 			return tweets, err
 		}
+		userTweetChanged := tweet.TweetBody
+		userTweetChanged = strings.ReplaceAll(userTweetChanged, "i16", "<")
+		userTweetChanged = strings.ReplaceAll(userTweetChanged, "i12", ">")
+		tweet.TweetBody = userTweetChanged
 		tweets = append(tweets, &tweet)
 	}
 	if err := scanner.Err(); err != nil {

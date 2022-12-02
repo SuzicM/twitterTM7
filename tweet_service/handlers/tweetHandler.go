@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
 	"twitterTM7/data"
 
 	"github.com/gorilla/mux"
@@ -110,6 +111,10 @@ func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Reque
 
 func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUser)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "<", "i16")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, ">", "i12")
+	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUser(userTweet)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
@@ -121,6 +126,10 @@ func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Reques
 
 func (s *TweetHandler) CreateTweetForUsername(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUsername)
+	userTweetChanged := userTweet.TweetBody
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, "<", "i16")
+	userTweetChanged = strings.ReplaceAll(userTweetChanged, ">", "i12")
+	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUsername(userTweet)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
