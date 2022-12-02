@@ -29,7 +29,9 @@ services:
       - USER_SERVICE_PORT=${USER_SERVICE_PORT}
       - MONGO_DB_URI=mongodb://root:pass@mongo:27017
     depends_on:
-      mongo:
+     mongo:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     networks:
       - network
@@ -84,10 +86,23 @@ services:
     networks:
       - network
 
+  redis:
+    image: redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: "redis-server --save 20 1 --loglevel warning"
+    volumes:
+      - redis_data:/data
+
+
 volumes:
   mongo_store:
   cass_store:
+  redis_data:
+
 
 networks:
   network:
     driver: bridge
+
