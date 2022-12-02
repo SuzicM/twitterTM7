@@ -13,6 +13,7 @@ import (
 
 	gorillaHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/sessions"
 )
 
 func main() {
@@ -44,8 +45,15 @@ func main() {
 	defer store.Disconnect(timeoutContext)
 
 	store.Ping()
+
+	cookies := sessions.NewCookieStore([]byte("super-secret"))
+	cookies.Options = &sessions.Options{
+		Path:     "/",
+		MaxAge:   60 * 15,
+		HttpOnly: true,
+	}
 	//Initialize the handler and inject said logger
-	usersHandler := handlers.NewUserHandler(logger, store)
+	usersHandler := handlers.NewUserHandler(logger, store, cookies)
 
 	//Initialize the router and add a middleware for all the requests
 	router := mux.NewRouter()
@@ -57,9 +65,19 @@ func main() {
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
 	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
 
+	getLogged := router.Methods(http.MethodGet).Subrouter()
+	getLogged.HandleFunc("/current/user/", usersHandler.GetLogged)
+
 	postRouter := router.Methods(http.MethodPost).Subrouter()
 	postRouter.HandleFunc("/register/", usersHandler.PostUser)
 	postRouter.Use(usersHandler.MiddlewareUserValidation)
+
+	logInRouter := router.Methods(http.MethodPost).Subrouter()
+	logInRouter.HandleFunc("/login/user/", usersHandler.LogInUser)
+	logInRouter.Use(usersHandler.MiddlewareDataDeserialization)
+
+	logOutRouter := router.Methods(http.MethodGet).Subrouter()
+	logOutRouter.HandleFunc("/login/user/", usersHandler.LogoutUser)
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}/", usersHandler.PutUser)

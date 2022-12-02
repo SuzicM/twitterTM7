@@ -9,5 +9,6 @@ RUN go build -o server
 FROM alpine
 WORKDIR /usr/bin
 COPY --from=build_container /app/server .
+COPY --from=build_container /app/data ./blacklist/
 EXPOSE 8080
 ENTRYPOINT ["server"]

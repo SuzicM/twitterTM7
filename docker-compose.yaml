@@ -28,6 +28,10 @@ services:
     environment:
       - USER_SERVICE_PORT=${USER_SERVICE_PORT}
       - MONGO_DB_URI=mongodb://root:pass@mongo:27017
+      - ACCESS_TOKEN_PRIVATE_KEY=${ACCESS_TOKEN_PRIVATE_KEY}
+      - ACCESS_TOKEN_PUBLIC_KEY=${ACCESS_TOKEN_PUBLIC_KEY}
+      - REFRESH_TOKEN_PRIVATE_KEY=${REFRESH_TOKEN_PRIVATE_KEY}
+      - REFRESH_TOKEN_PUBLIC_KEY=${REFRESH_TOKEN_PUBLIC_KEY}
     depends_on:
       mongo:
         condition: service_healthy

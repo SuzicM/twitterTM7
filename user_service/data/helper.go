@@ -4,6 +4,9 @@ import (
 	"fmt"
 	"regexp"
 	"unicode"
+	"bufio"
+	"os"
+	"log"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -42,7 +45,28 @@ func IsAlnumOrHyphen(s string) bool {
 	return true
 }
 
+func isBlacklisted(password string) bool {
+	file, err := os.Open("blacklist/blacklist-passwords.txt")
+  
+    if err != nil {
+        log.Fatalf("failed to open")
+  
+    }
+	scanner := bufio.NewScanner(file)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {      
+		if scanner.Text() == password{
+			return true
+		}
+    }
+	file.Close()
+	return false
+}
+
 func ValidatePassword(s string) bool {
+	if isBlacklisted(s){
+		return false
+	}
 	pass := 0
 	for _, c := range s {
 		switch {
@@ -50,7 +74,7 @@ func ValidatePassword(s string) bool {
 			pass++
 		case unicode.IsUpper(c):
 			pass++
-		case unicode.IsPunct(c):
+		case unicode.IsPunct(c) && c != ';' && c != '-' && c != '=':
 			pass++
 		case unicode.IsLower(c):
 			pass++

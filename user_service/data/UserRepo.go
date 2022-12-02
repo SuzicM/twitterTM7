@@ -5,8 +5,10 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"registration/twitterTM7/utils"
 	"time"
 
+	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -133,7 +135,7 @@ func (ur *UserRepo) Post(user *User) error {
 	usersCollection := ur.getCollection()
 	//tempPass := user.Password
 
-	user.Password, _ = HashPassword(user.Password)
+	//user.Password, _ = HashPassword(user.Password)
 
 	result, err := usersCollection.InsertOne(ctx, &user)
 	if err != nil {
@@ -210,4 +212,46 @@ func (ur *UserRepo) ValidateUser(user *User) bool {
 		return false
 	}
 	return true
+}
+
+func (ur *UserRepo) LogInUser(user *SignInData) (string, string, error) {
+	logged, err := ur.GetByUsername(user.Username)
+	if err != nil {
+		ur.logger.Println(err)
+		return "", "", err
+	}
+
+	key := os.Getenv("ACCESS_TOKEN_PRIVATE_KEY")
+	refresh := os.Getenv("REFRESH_TOKEN_PRIVATE_KEY")
+	var access_token string
+	var refresh_token string
+
+	for _, password := range logged {
+		if !CheckPasswordHash(user.Password, password.Password) {
+			return "wrong", "wrong", err
+		}
+		access_token, err = utils.CreateToken(time.Hour, user.Username, key)
+		if err != nil {
+			ur.logger.Println(err)
+			return "", "", err
+		}
+
+		refresh_token, err = utils.CreateToken(time.Hour, user.Username, refresh)
+		if err != nil {
+			ur.logger.Println(err)
+			return "", "", err
+		}
+
+	}
+
+	return access_token, refresh_token, nil
+}
+
+func (ur *UserRepo) GetLoggedUser(s *sessions.Session) string {
+	val := s.Values["user"]
+	if val == nil {
+		return "Empty"
+	}
+	user := val.(string)
+	return user
 }
