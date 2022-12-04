@@ -18,6 +18,7 @@ type TweetByUsername struct {
 	Username   string `json:"username"`
 	TweetTitle string `json:"title"`
 	TweetBody  string `json:"body"`
+	TweetLike  []string
 	CreatedOn  gocql.UUID
 }
 

@@ -163,6 +163,30 @@ func (sr *TweetRepo) InsertTweetByUsername(userTweet *TweetByUsername) error {
 	return nil
 }
 
+func (sr *TweetRepo) InsertTweetByLike(userTweet *TweetByUsername) error {
+
+	err := sr.session.Query(
+		`INSERT INTO like_by_tweet (tweet_like, username, tweet_title, tweet_body, created_on) 
+		VALUES (?, ?, ?, ?, ?)`,
+		userTweet.TweetLike, userTweet.Username, userTweet.TweetTitle, userTweet.TweetBody, userTweet.CreatedOn).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+		return err
+	}
+	return nil
+}
+func (sr *TweetRepo) UpdateLikeByTweet(username string, tweetBody string, tweetLike string) error {
+
+	err := sr.session.Query(
+		`UPDATE like_by_tweet SET tweetLike=tweetLike+? where username = ? and tweetBody = ? `,
+		[]string{tweetLike}, username, tweetBody).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
 // NoSQL: Performance issue, we never want to fetch all the data
 func (sr *TweetRepo) GetDistinctIds(idColumnName string, tableName string) ([]string, error) {
 	scanner := sr.session.Query(
