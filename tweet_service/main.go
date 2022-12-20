@@ -55,7 +55,7 @@ func main() {
 	getTweetsByUser.HandleFunc("/tweet/{id}/", tweetsHandler.GetTweetsByUser)
 
 	getTweetsByUsername := router.Methods(http.MethodGet).Subrouter()
-	getTweetsByUsername.HandleFunc("/usernames/tweet/{username}/", tweetsHandler.GetTweetsByUsername)
+	getTweetsByUsername.HandleFunc("/username/{username}/", tweetsHandler.GetTweetsByUsername)
 
 	postTweetForUser := router.Methods(http.MethodPost).Subrouter()
 	postTweetForUser.HandleFunc("/tweet/", tweetsHandler.CreateTweetForUser)

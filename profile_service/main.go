@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"registration/twitterTM7/client/tweet"
+	"registration/twitterTM7/client/user"
 	"registration/twitterTM7/data"
 	"registration/twitterTM7/handlers"
 	"syscall"
@@ -13,7 +15,6 @@ import (
 
 	gorillaHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 )
 
 func main() {
@@ -23,12 +24,12 @@ func main() {
 	//
 	//	go run . >> output.txt
 	//
-	logger := log.New(os.Stdout, "[user-api] ", log.LstdFlags)
-	storeLogger := log.New(os.Stdout, "[user-store] ", log.LstdFlags)
+	logger := log.New(os.Stdout, "[profile-api] ", log.LstdFlags)
+	storeLogger := log.New(os.Stdout, "[profile-store] ", log.LstdFlags)
 
 	//Reading from environment, if not set we will default it to 8080.
 	//This allows flexibility in different environments (for eg. when running multiple docker api's and want to override the default port)
-	port := os.Getenv("USER_SERVICE_PORT")
+	port := os.Getenv("PROFILE_PORT")
 	if len(port) == 0 {
 		port = "8080"
 	}
@@ -46,51 +47,34 @@ func main() {
 
 	store.Ping()
 
-	cookies := sessions.NewCookieStore([]byte("super-secret"))
-	cookies.Options = &sessions.Options{
-		Path:     "/",
-		MaxAge:   60 * 15,
-		HttpOnly: true,
-	}
+	userport := os.Getenv("USER_SERVICE_PORT")
+	tweetport := os.Getenv("TWEET_SERVICE_PORT")
+	userhost := os.Getenv("USER_SERVICE_HOST")
+	tweethost := os.Getenv("TWEET_SERVICE_HOST")
+
+	userclient := user.NewClient(userhost, userport)
+	tweetclient := tweet.NewClient(tweethost, tweetport)
 	//Initialize the handler and inject said logger
-	usersHandler := handlers.NewUserHandler(logger, store, cookies)
+	profileHandler := handlers.NewProfileHandler(store, tweetclient, userclient, logger)
 
 	//Initialize the router and add a middleware for all the requests
 	router := mux.NewRouter()
-	router.Use(usersHandler.MiddlewareContentTypeSet)
+	router.Use(profileHandler.MiddlewareContentTypeSet)
 
 	getRouter := router.Methods(http.MethodGet).Subrouter()
-	getRouter.HandleFunc("/{username}/", usersHandler.GetOneUsername)
+	getRouter.HandleFunc("/{username}/", profileHandler.GetProfile)
 
-	getAllRouter := router.Methods(http.MethodGet).Subrouter()
-	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
-
-	getLogged := router.Methods(http.MethodGet).Subrouter()
-	getLogged.HandleFunc("/current/user/", usersHandler.GetLogged)
-
-	postRouter := router.Methods(http.MethodPost).Subrouter()
-	postRouter.HandleFunc("/register/", usersHandler.PostUser)
-	postRouter.Use(usersHandler.MiddlewareUserValidation)
-
-	logInRouter := router.Methods(http.MethodPost).Subrouter()
-	logInRouter.HandleFunc("/login/", usersHandler.LogInUser)
-	logInRouter.Use(usersHandler.MiddlewareDataDeserialization)
-
-	logOutRouter := router.Methods(http.MethodGet).Subrouter()
-	logOutRouter.HandleFunc("/logout/", usersHandler.LogoutUser)
-
-	putRouter := router.Methods(http.MethodPut).Subrouter()
-	putRouter.HandleFunc("/{id}/", usersHandler.PutUser)
+	/*postRouter := router.Methods(http.MethodPost).Subrouter()
+	postRouter.HandleFunc("/api/profile/", profileHandler.PostUser)
 
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
-	deleteHandler.HandleFunc("/user/{id}", usersHandler.DeleteUser)
+	deleteHandler.HandleFunc("/api/profile/", profileHandler.DeleteUser)*/
 
 	//Set cors. Generally you wouldn't like to set cors to a "*". It is a wildcard and it will match any source.
 	//Normally you would set this to a set of ip's you want this api to serve. If you have an associated frontend app
 	//you would put the ip of the server where the frontend is running. The only time you don't need cors is when you
 	//calling the api from the same ip, or when you are using the proxy (for eg. Nginx)
-	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"http://localhost:4200"}))
-	cors = gorillaHandlers.CORS(gorillaHandlers.AllowCredentials())
+	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"*"}))
 
 	//Initialize the server
 	server := http.Server{

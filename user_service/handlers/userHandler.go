@@ -70,6 +70,30 @@ func (p *UserHandler) GetOneUser(rw http.ResponseWriter, h *http.Request) {
 	}
 }
 
+func (p *UserHandler) GetOneUsername(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	username := vars["username"]
+
+	user, err := p.repo.GetByUsername(username)
+	if err != nil {
+		http.Error(rw, "Database exception", http.StatusInternalServerError)
+		p.logger.Fatal("Database exception: ", err)
+	}
+
+	if user == nil {
+		http.Error(rw, "User with given id not found", http.StatusNotFound)
+		p.logger.Printf("User with id: '%s' not found", username)
+		return
+	}
+
+	err = user.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		p.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
 func (p *UserHandler) PostUser(rw http.ResponseWriter, h *http.Request) {
 	user := h.Context().Value(KeyUser{}).(*data.User)
 	p.repo.Post(user)
@@ -125,6 +149,9 @@ func (p *UserHandler) LogInUser(rw http.ResponseWriter, h *http.Request) {
 	session.Values["access_token"] = atoken
 	session.Values["refresh_token"] = rtoken
 	session.Values["auth"] = "true"
+	session.Options.Path = "/"
+	session.Options.Secure = false
+	session.Options.HttpOnly = false
 	session.Values["user"] = user.Username
 	session.Options.MaxAge = 1800
 
@@ -135,7 +162,14 @@ func (p *UserHandler) LogInUser(rw http.ResponseWriter, h *http.Request) {
 		return
 	}
 
-	rw.WriteHeader(http.StatusOK)
+	
+	err = data.ToJSON(rw,atoken)
+	if err != nil {
+		http.Error(rw, "Unable to convert token to json", http.StatusInternalServerError)
+		p.logger.Fatal("Unable to convert token to json :", err)
+		return
+	}
+	//rw.WriteHeader(http.StatusOK)
 }
 
 func (p *UserHandler) LogoutUser(rw http.ResponseWriter, h *http.Request) {

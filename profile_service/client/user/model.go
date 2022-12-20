@@ -1,9 +1,8 @@
-package data
+package user
 
 import (
 	"encoding/json"
 	"io"
-	
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -18,11 +17,6 @@ type User struct {
 	Age       string             `bson:"age" json:"age" validate:"required"`
 	Gender    string             `bson:"gender" json:"gender" validate:"required"`
 	Residance string             `bson:"residance" json:"residance" validate:"required"`
-}
-
-type SignInData struct{
-	Username  string             `json:"username" validate:"required"`
-	Password  string             `json:"password" validate:"required"`
 }
 
 type Users []*User
@@ -42,21 +36,7 @@ func (p *User) FromJSON(r io.Reader) error {
 	return d.Decode(p)
 }
 
-func (p *SignInData) FromJSON(r io.Reader) error {
-	d := json.NewDecoder(r)
-	return d.Decode(p)
-}
-
-func (p *SignInData) ToJSON(w io.Writer) error {
-	e := json.NewEncoder(w)
-	return e.Encode(p)
-}
-
-func ToJSON(w io.Writer, s string) error {
-	e := json.NewEncoder(w)
-	return e.Encode(s)
-}
-
 type UserRequest struct {
 	Username string
 }
+

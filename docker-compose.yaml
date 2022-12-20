@@ -54,6 +54,26 @@ services:
     networks:
       - network
 
+  profile_service:
+    build:
+      context: ./profile_service
+      dockerfile: Dockerfile
+    restart: always
+    container_name: ${PROFILE_SERVICE_HOST}
+    hostname: ${PROFILE_SERVICE_HOST}
+    environment:
+      - USER_SERVICE_PORT=${USER_SERVICE_PORT}
+      - TWEET_SERVICE_PORT=${TWEET_SERVICE_PORT}
+      - PROFILE_SERVICE_PORT=${PROFILE_SERVICE_PORT}
+      - USER_SERVICE_HOST=${USER_SERVICE_HOST}
+      - TWEET_SERVICE_HOST=${TWEET_SERVICE_HOST}
+      - MONGO_DB_URI=mongodb://root:pass@mongo:27017
+    depends_on:
+     mongo:
+        condition: service_healthy
+    networks:
+      - network
+
   mongo:
     image: mongo
     restart: always
