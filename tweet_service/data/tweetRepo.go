@@ -82,6 +82,16 @@ func (sr *TweetRepo) CreateTables() {
 	if err != nil {
 		sr.logger.Println(err)
 	}
+
+	err = sr.session.Query(
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s 
+		(user_id text, post_id text, tweet_liked text,
+		PRIMARY KEY ((tweet_liked), post_id)) 
+		WITH CLUSTERING ORDER BY (post_id ASC)`,
+			"likes_by_users")).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+	}
 }
 
 // TO DO
@@ -135,6 +145,27 @@ func (sr *TweetRepo) GetTweetsByUsername(id string) (TweetsByUsername, error) {
 	return tweets, nil
 }
 
+func (sr *TweetRepo) GetLikesByUsers(id string) (LikesByUsers, error) {
+	scanner := sr.session.Query(`SELECT user_id,post_id, tweet_liked FROM likes_by_users WHERE post_id = ?`,
+		id).Iter().Scanner()
+
+	var likes LikesByUsers
+	for scanner.Next() {
+		var like LikeByUsers
+		err := scanner.Scan(&like.UserId, &like.PostId, &like.TweetLiked)
+		if err != nil {
+			sr.logger.Println(err)
+			return likes, err
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		sr.logger.Println(err)
+		return likes, err
+	}
+	return likes, nil
+}
+
 func (sr *TweetRepo) InsertTweetByUser(userTweet *TweetByUser) error {
 	userid, _ := gocql.RandomUUID()
 	created := gocql.TimeUUID()
@@ -153,8 +184,20 @@ func (sr *TweetRepo) InsertTweetByUsername(userTweet *TweetByUsername) error {
 	created := gocql.TimeUUID()
 	err := sr.session.Query(
 		`INSERT INTO tweets_by_username (username, tweet_title, tweet_body, created_on) 
-		VALUES ( ?, ?, ?, ?)`,
+		VALUES (?, ?, ?, ?)`,
 		userTweet.Username, userTweet.TweetTitle, userTweet.TweetBody, created).Exec()
+	if err != nil {
+		sr.logger.Println(err)
+		return err
+	}
+	return nil
+}
+
+func (sr *TweetRepo) InsertLikeByUser(userLike *LikeByUsers) error {
+	err := sr.session.Query(
+		`INSERT INTO likes_by_users (user_id, post_id, tweet_liked) 
+		VALUES (?, ?, ? )`,
+		userLike.UserId, userLike.PostId, userLike.TweetLiked).Exec()
 	if err != nil {
 		sr.logger.Println(err)
 		return err

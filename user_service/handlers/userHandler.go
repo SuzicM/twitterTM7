@@ -26,7 +26,7 @@ func NewUserHandler(l *log.Logger, r *data.UserRepo, s *sessions.CookieStore) *U
 	return &UserHandler{l, r, s}
 }
 
-//Gets all of the users in the database
+// Gets all of the users in the database
 func (p *UserHandler) GetAllUsers(rw http.ResponseWriter, h *http.Request) {
 	allUsers, err := p.repo.GetAll()
 	if err != nil {
@@ -194,7 +194,7 @@ func (p *UserHandler) MiddlewareUserValidation(next http.Handler) http.Handler {
 			return
 		}
 
-		if !p.repo.ValidateUser(user) {
+		if !p.repo.ValidateUser(user, p.logger) {
 			p.logger.Println("Error: Some of the input values for user data are not correct")
 			http.Error(rw, fmt.Sprintf("Error: Some of the input values for user data are not correct"), http.StatusBadRequest)
 			return

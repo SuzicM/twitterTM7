@@ -77,7 +77,7 @@ func main() {
 	logInRouter.Use(usersHandler.MiddlewareDataDeserialization)
 
 	logOutRouter := router.Methods(http.MethodGet).Subrouter()
-	logOutRouter.HandleFunc("/login/user/", usersHandler.LogoutUser)
+	logOutRouter.HandleFunc("/logout/user/", usersHandler.LogoutUser)
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}/", usersHandler.PutUser)

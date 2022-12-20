@@ -21,9 +21,17 @@ type TweetByUsername struct {
 	CreatedOn  gocql.UUID
 }
 
+type LikeByUsers struct {
+	UserId     string `json:"user-id"`
+	PostId     string `json:"post-id"`
+	TweetLiked string `json:"liked"`
+}
+
 type TweetsByUser []*TweetByUser
 
 type TweetsByUsername []*TweetByUsername
+
+type LikesByUsers []*LikeByUsers
 
 func (o *TweetsByUser) ToJSON(w io.Writer) error {
 	e := json.NewEncoder(w)
@@ -41,6 +49,16 @@ func (o *TweetsByUsername) ToJSON(w io.Writer) error {
 }
 
 func (o *TweetByUsername) FromJSON(r io.Reader) error {
+	d := json.NewDecoder(r)
+	return d.Decode(o)
+}
+
+func (o *LikesByUsers) ToJSON(w io.Writer) error {
+	e := json.NewEncoder(w)
+	return e.Encode(o)
+}
+
+func (o *LikeByUsers) FromJSON(r io.Reader) error {
 	d := json.NewDecoder(r)
 	return d.Decode(o)
 }

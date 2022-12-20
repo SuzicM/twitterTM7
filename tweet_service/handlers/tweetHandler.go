@@ -109,6 +109,27 @@ func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Reque
 	}
 }
 
+func (s *TweetHandler) GetLikesByUsers(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	postId := vars["id"]
+
+	likesByUsers, err := s.repo.GetLikesByUsers(postId)
+	if err != nil {
+		s.logger.Print("Database exception: ", err)
+	}
+
+	if likesByUsers == nil {
+		return
+	}
+
+	err = likesByUsers.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		s.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
 func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUser)
 	userTweetChanged := userTweet.TweetBody
@@ -131,6 +152,20 @@ func (s *TweetHandler) CreateTweetForUsername(rw http.ResponseWriter, h *http.Re
 	userTweetChanged = strings.ReplaceAll(userTweetChanged, ">", "i12")
 	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUsername(userTweet)
+	if err != nil {
+		s.logger.Print("Database exception: ", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	rw.WriteHeader(http.StatusCreated)
+}
+
+func (s *TweetHandler) CreateLikeForUser(rw http.ResponseWriter, h *http.Request) {
+	userLike := h.Context().Value(KeyProduct{}).(*data.LikeByUsers)
+	userTweetChanged := userLike.TweetLiked
+
+	userLike.TweetLiked = userTweetChanged
+	err := s.repo.InsertLikeByUser(userLike)
 	if err != nil {
 		s.logger.Print("Database exception: ", err)
 		rw.WriteHeader(http.StatusBadRequest)
@@ -164,6 +199,21 @@ func (s *TweetHandler) MiddlewareTweetsForUsernameDeserialization(next http.Hand
 			return
 		}
 		ctx := context.WithValue(h.Context(), KeyProduct{}, tweetByUsername)
+		h = h.WithContext(ctx)
+		next.ServeHTTP(rw, h)
+	})
+}
+
+func (s *TweetHandler) MiddlewareLikeForUserDeserialization(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, h *http.Request) {
+		likeByUser := &data.LikeByUsers{}
+		err := likeByUser.FromJSON(h.Body)
+		if err != nil {
+			http.Error(rw, "Unable to decode json", http.StatusBadRequest)
+			s.logger.Fatal(err)
+			return
+		}
+		ctx := context.WithValue(h.Context(), KeyProduct{}, likeByUser)
 		h = h.WithContext(ctx)
 		next.ServeHTTP(rw, h)
 	})

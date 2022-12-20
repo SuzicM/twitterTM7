@@ -1,12 +1,12 @@
 package data
 
 import (
+	"bufio"
 	"fmt"
+	"log"
+	"os"
 	"regexp"
 	"unicode"
-	"bufio"
-	"os"
-	"log"
 
 	"github.com/google/uuid"
 	"golang.org/x/crypto/bcrypt"
@@ -47,24 +47,24 @@ func IsAlnumOrHyphen(s string) bool {
 
 func isBlacklisted(password string) bool {
 	file, err := os.Open("blacklist/blacklist-passwords.txt")
-  
-    if err != nil {
-        log.Fatalf("failed to open")
-  
-    }
+
+	if err != nil {
+		log.Fatalf("failed to open")
+
+	}
 	scanner := bufio.NewScanner(file)
 	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {      
-		if scanner.Text() == password{
+	for scanner.Scan() {
+		if scanner.Text() == password {
 			return true
 		}
-    }
+	}
 	file.Close()
 	return false
 }
 
 func ValidatePassword(s string) bool {
-	if isBlacklisted(s){
+	if isBlacklisted(s) {
 		return false
 	}
 	pass := 0
@@ -87,36 +87,66 @@ func ValidatePassword(s string) bool {
 	return pass == len(s)
 }
 
-func ValidateName(user *User) bool {
+func ValidateName(user *User, logger *log.Logger) bool {
 	reg, _ := regexp.Compile("^[a-zA-Z]+$")
 	match := reg.MatchString(user.Name)
+
+	if !match {
+		logger.Println("Error: ValidateName")
+	}
+
 	return match
 }
 
-func ValidateLastName(user *User) bool {
+func ValidateLastName(user *User, logger *log.Logger) bool {
 	reg, _ := regexp.Compile("^[a-zA-Z]+$")
 	match := reg.MatchString(user.Surname)
+
+	if !match {
+		logger.Println("Error: ValidateLastName")
+	}
+
 	return match
 }
 
-func ValidateGender(user *User) bool {
+func ValidateGender(user *User, logger *log.Logger) bool {
 	reg, _ := regexp.Compile("^[a-zA-Z]+$")
 	match := reg.MatchString(user.Gender)
+
+	if !match {
+		logger.Println("Error: ValidateGender")
+	}
+
 	return match
 }
 
-func ValidateResidance(user *User) bool {
+func ValidateResidance(user *User, logger *log.Logger) bool {
 	reg, _ := regexp.Compile("^[a-z]+([a-zA-Z0-9]+)$")
 	match := reg.MatchString(user.Gender)
+
+	if !match {
+		logger.Println("Error: ValidateResidance")
+	}
+
 	return match
 }
 
-func ValidateAge(user *User) bool {
+func ValidateAge(user *User, logger *log.Logger) bool {
 	reg, _ := regexp.Compile("^[0-9]+$")
 	match := reg.MatchString(user.Age)
+
+	if !match {
+		logger.Println("Error: Age is invalid")
+	}
 	return match
 }
 
-func ValidateUsername(user *User) bool {
-	return IsAlnumOrHyphen(user.Username)
+func ValidateUsername(user *User, logger *log.Logger) bool {
+	var valid = IsAlnumOrHyphen(user.Username)
+
+	if !valid {
+		logger.Println("Error: ValidateUsername")
+	}
+
+	return valid
 }

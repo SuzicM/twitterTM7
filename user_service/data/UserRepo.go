@@ -189,23 +189,23 @@ func (ur *UserRepo) Delete(id string) error {
 	return nil
 }
 
-func (ur *UserRepo) ValidateUser(user *User) bool {
-	if !ValidateAge(user) {
+func (ur *UserRepo) ValidateUser(user *User, logger *log.Logger) bool {
+	if !ValidateAge(user, logger) {
 		return false
 	}
-	if !ValidateUsername(user) {
+	if !ValidateUsername(user, logger) {
 		return false
 	}
-	if !ValidateName(user) {
+	if !ValidateName(user, logger) {
 		return false
 	}
-	if !ValidateLastName(user) {
+	if !ValidateLastName(user, logger) {
 		return false
 	}
-	if !ValidateGender(user) {
+	if !ValidateGender(user, logger) {
 		return false
 	}
-	if !ValidateResidance(user) {
+	if !ValidateResidance(user, logger) {
 		return false
 	}
 	if !ValidatePassword(user.Password) {
