@@ -62,7 +62,7 @@ func main() {
 	postTweetForUser.Use(tweetsHandler.MiddlewareTweetsForUserDeserialization)
 
 	postTweetForUsername := router.Methods(http.MethodPost).Subrouter()
-	postTweetForUsername.HandleFunc("/tweet/username/", tweetsHandler.CreateTweetForUsername)
+	postTweetForUsername.HandleFunc("/username/", tweetsHandler.CreateTweetForUsername)
 	postTweetForUsername.Use(tweetsHandler.MiddlewareTweetsForUsernameDeserialization)
 
 	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"*"}))
