@@ -106,8 +106,8 @@ func ValidateGender(user *User) bool {
 }
 
 func ValidateResidance(user *User) bool {
-	reg, _ := regexp.Compile("^[a-z]+([a-zA-Z0-9]+)$")
-	match := reg.MatchString(user.Gender)
+	reg, _ := regexp.Compile("^[a-zA-Z0-9]+$")
+	match := reg.MatchString(user.Residance)
 	return match
 }
 

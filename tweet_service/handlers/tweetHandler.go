@@ -10,6 +10,7 @@ import (
 	"twitterTM7/data"
 
 	"github.com/gorilla/mux"
+	"github.com/gocql/gocql"
 )
 
 type KeyProduct struct{}
@@ -109,6 +110,43 @@ func (s *TweetHandler) GetTweetsByUsername(rw http.ResponseWriter, h *http.Reque
 	}
 }
 
+func (s *TweetHandler) GetUsersLiked(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	id := vars["id"]
+
+	parsed, _ := gocql.ParseUUID(id)
+	listOfLikes, err := s.repo.GetUsersThatLiked(parsed)
+	if err != nil {
+		s.logger.Print("Database exception: ", err)
+	}
+
+	err = listOfLikes.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		s.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
+func (s *TweetHandler) GetNumberOfLikes(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	id := vars["id"]
+
+	parsed, _ := gocql.ParseUUID(id)
+	numberOfLikes, err := s.repo.GetUserLikes(parsed)
+	if err != nil {
+		s.logger.Print("Database exception: ", err)
+	}
+	likes := data.Likes{NumberOfLikes: numberOfLikes}
+
+	err = likes.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		s.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
 func (s *TweetHandler) CreateTweetForUser(rw http.ResponseWriter, h *http.Request) {
 	userTweet := h.Context().Value(KeyProduct{}).(*data.TweetByUser)
 	userTweetChanged := userTweet.TweetBody
@@ -132,6 +170,17 @@ func (s *TweetHandler) CreateTweetForUsername(rw http.ResponseWriter, h *http.Re
 	userTweet.TweetBody = userTweetChanged
 	err := s.repo.InsertTweetByUsername(userTweet)
 	if err != nil {
+		s.logger.Print("Database exception: ", err)
+		rw.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	rw.WriteHeader(http.StatusCreated)
+}
+
+func (s *TweetHandler) CreateLikeTweet(rw http.ResponseWriter, h *http.Request) {
+	like := h.Context().Value(KeyProduct{}).(*data.Like)
+	liked, err := s.repo.LikeDislikeTweet(like.Username, like.TweetId)
+	if !liked {
 		s.logger.Print("Database exception: ", err)
 		rw.WriteHeader(http.StatusBadRequest)
 		return
@@ -164,6 +213,21 @@ func (s *TweetHandler) MiddlewareTweetsForUsernameDeserialization(next http.Hand
 			return
 		}
 		ctx := context.WithValue(h.Context(), KeyProduct{}, tweetByUsername)
+		h = h.WithContext(ctx)
+		next.ServeHTTP(rw, h)
+	})
+}
+
+func (s *TweetHandler) MiddlewareLikeDeserialization(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, h *http.Request) {
+		like := &data.Like{}
+		err := like.FromJSON(h.Body)
+		if err != nil {
+			http.Error(rw, "Unable to decode json", http.StatusBadRequest)
+			s.logger.Fatal(err)
+			return
+		}
+		ctx := context.WithValue(h.Context(), KeyProduct{}, like)
 		h = h.WithContext(ctx)
 		next.ServeHTTP(rw, h)
 	})

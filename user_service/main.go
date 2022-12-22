@@ -78,6 +78,7 @@ func main() {
 
 	logOutRouter := router.Methods(http.MethodGet).Subrouter()
 	logOutRouter.HandleFunc("/u/logout/", usersHandler.LogoutUser)
+	
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}/", usersHandler.PutUser)

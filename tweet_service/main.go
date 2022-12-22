@@ -65,6 +65,16 @@ func main() {
 	postTweetForUsername.HandleFunc("/username/", tweetsHandler.CreateTweetForUsername)
 	postTweetForUsername.Use(tweetsHandler.MiddlewareTweetsForUsernameDeserialization)
 
+	getLikesListUsers := router.Methods(http.MethodGet).Subrouter()
+	getLikesListUsers.HandleFunc("/list/{id}", tweetsHandler.GetUsersLiked)
+
+	getLikesNumber := router.Methods(http.MethodGet).Subrouter()
+	getLikesNumber.HandleFunc("/like/{id}/", tweetsHandler.GetNumberOfLikes)
+
+	postLikeTweet := router.Methods(http.MethodPost).Subrouter()
+	postLikeTweet.HandleFunc("/like/", tweetsHandler.CreateLikeTweet)
+	postLikeTweet.Use(tweetsHandler.MiddlewareLikeDeserialization)
+
 	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"*"}))
 
 	//Initialize the server
