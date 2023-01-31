@@ -54,6 +54,7 @@ require (
 	gopkg.in/ini.v1 v1.67.0 // indirect
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
+	gopkg.in/mail.v2 v2.3.1
 )
 
 require (
@@ -68,4 +69,5 @@ require (
 	github.com/joho/godotenv v1.4.0
 	github.com/spf13/viper v1.14.0
 	go.mongodb.org/mongo-driver v1.11.0
+	gopkg.in/alexcesaro/quotedprintable.v3 v3.0.0-20150716171945-2caba252f4dc // indirect
 )

@@ -62,6 +62,9 @@ func main() {
 	getRouter := router.Methods(http.MethodGet).Subrouter()
 	getRouter.HandleFunc("/{username}/", usersHandler.GetOneUsername)
 
+	getCodeRouter := router.Methods(http.MethodGet).Subrouter()
+	getCodeRouter.HandleFunc("/code/{code}/", usersHandler.GetOneCode)
+
 	getAllRouter := router.Methods(http.MethodGet).Subrouter()
 	getAllRouter.HandleFunc("/all", usersHandler.GetAllUsers)
 
@@ -78,10 +81,13 @@ func main() {
 
 	logOutRouter := router.Methods(http.MethodGet).Subrouter()
 	logOutRouter.HandleFunc("/u/logout/", usersHandler.LogoutUser)
-	
 
 	putRouter := router.Methods(http.MethodPut).Subrouter()
 	putRouter.HandleFunc("/{id}/", usersHandler.PutUser)
+
+	confirmRouter := router.Methods(http.MethodPost).Subrouter()
+	confirmRouter.HandleFunc("/confirm/", usersHandler.ConfirmAccount)
+	confirmRouter.Use(usersHandler.MiddlewareCodeDeserialization)
 
 	deleteHandler := router.Methods(http.MethodDelete).Subrouter()
 	deleteHandler.HandleFunc("/user/{id}", usersHandler.DeleteUser)

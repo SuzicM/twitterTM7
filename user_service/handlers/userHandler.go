@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"registration/twitterTM7/data"
 	"registration/twitterTM7/utils"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -94,6 +95,32 @@ func (p *UserHandler) GetOneUsername(rw http.ResponseWriter, h *http.Request) {
 	}
 }
 
+func (p *UserHandler) GetOneCode(rw http.ResponseWriter, h *http.Request) {
+	vars := mux.Vars(h)
+	code := vars["code"]
+
+	intCode ,_ := strconv.Atoi(code)
+
+	user, err := p.repo.GetByRegisterCode(intCode)
+	if err != nil {
+		http.Error(rw, "Database exception", http.StatusInternalServerError)
+		p.logger.Fatal("Database exception: ", err)
+	}
+
+	if user == nil {
+		http.Error(rw, "User with given id not found", http.StatusNotFound)
+		p.logger.Printf("User with id: '%s' not found", code)
+		return
+	}
+
+	err = user.ToJSON(rw)
+	if err != nil {
+		http.Error(rw, "Unable to convert to json", http.StatusInternalServerError)
+		p.logger.Fatal("Unable to convert to json :", err)
+		return
+	}
+}
+
 func (p *UserHandler) PostUser(rw http.ResponseWriter, h *http.Request) {
 	user := h.Context().Value(KeyUser{}).(*data.User)
 	p.repo.Post(user)
@@ -134,6 +161,14 @@ func (p *UserHandler) LogInUser(rw http.ResponseWriter, h *http.Request) {
 	}
 
 	user := h.Context().Value(KeyUser{}).(*data.SignInData)
+	userConfirmed, _ := p.repo.GetByUsername(user.Username)
+	for _, confirmedUser := range userConfirmed {
+		if confirmedUser.RegisterCode != 0 {
+			http.Error(rw, "Unconfirmed user", http.StatusInternalServerError)
+			p.logger.Fatal("Unconfirmed user :", err)
+			return
+		}
+	}
 	atoken, rtoken, err := p.repo.LogInUser(user)
 	if err != nil {
 		http.Error(rw, "Unable to log in", http.StatusInternalServerError)
@@ -162,8 +197,7 @@ func (p *UserHandler) LogInUser(rw http.ResponseWriter, h *http.Request) {
 		return
 	}
 
-	
-	err = data.ToJSON(rw,atoken)
+	err = data.ToJSON(rw, atoken)
 	if err != nil {
 		http.Error(rw, "Unable to convert token to json", http.StatusInternalServerError)
 		p.logger.Fatal("Unable to convert token to json :", err)
@@ -212,6 +246,13 @@ func (p *UserHandler) GetLogged(rw http.ResponseWriter, h *http.Request) {
 		p.logger.Fatal("Unable to convert to json :", err)
 		return
 	}
+}
+
+func (p *UserHandler) ConfirmAccount(rw http.ResponseWriter, h *http.Request) {
+	code := h.Context().Value(KeyUser{}).(*data.CodeRequest)
+	p.logger.Print("ovdje se nalaze kodovi"+strconv.Itoa(code.IntCode))
+	p.repo.NegateCodePut(code.IntCode)
+	rw.WriteHeader(http.StatusOK)
 }
 
 //Middleware to try and decode the incoming body. When decoded we run the validation on it just to check if everything is okay
@@ -310,6 +351,21 @@ func (s *UserHandler) MiddlewareDataDeserialization(next http.Handler) http.Hand
 			return
 		}
 		ctx := context.WithValue(h.Context(), KeyUser{}, user)
+		h = h.WithContext(ctx)
+		next.ServeHTTP(rw, h)
+	})
+}
+
+func (s *UserHandler) MiddlewareCodeDeserialization(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(rw http.ResponseWriter, h *http.Request) {
+		code := &data.CodeRequest{}
+		err := code.FromJSON(h.Body)
+		if err != nil {
+			http.Error(rw, "Unable to decode json", http.StatusBadRequest)
+			s.logger.Fatal(err)
+			return
+		}
+		ctx := context.WithValue(h.Context(), KeyUser{}, code)
 		h = h.WithContext(ctx)
 		next.ServeHTTP(rw, h)
 	})

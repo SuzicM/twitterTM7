@@ -2,11 +2,17 @@ package data
 
 import (
 	"context"
+	"crypto/rand"
+
+	//"crypto/tls"
 	"fmt"
 	"log"
 	"os"
 	"registration/twitterTM7/utils"
+	"strconv"
 	"time"
+
+	mail "gopkg.in/mail.v2"
 
 	"github.com/gorilla/sessions"
 	"go.mongodb.org/mongo-driver/bson"
@@ -129,11 +135,33 @@ func (ur *UserRepo) GetByUsername(name string) (Users, error) {
 	return users, nil
 }
 
+func (ur *UserRepo) GetByRegisterCode(code int) (Users, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	usersCollection := ur.getCollection()
+
+	var users Users
+	usersCursor, err := usersCollection.Find(ctx, bson.M{"code": code})
+	if err != nil {
+		ur.logger.Println(err)
+		return nil, err
+	}
+	if err = usersCursor.All(ctx, &users); err != nil {
+		ur.logger.Println(err)
+		return nil, err
+	}
+	return users, nil
+}
+
 func (ur *UserRepo) Post(user *User) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	usersCollection := ur.getCollection()
 	//tempPass := user.Password
+	RandomCrypto, _ := rand.Prime(rand.Reader, 42)
+	conversionInt := RandomCrypto.String()
+	user.RegisterCode, _ = strconv.Atoi(conversionInt)
 
 	//user.Password, _ = HashPassword(user.Password)
 
@@ -142,6 +170,7 @@ func (ur *UserRepo) Post(user *User) error {
 		ur.logger.Println(err)
 		return err
 	}
+	ur.SendEmail(user.RegisterCode, user.Email)
 	ur.logger.Printf("Documents ID: %v\n", result.InsertedID)
 	return nil
 }
@@ -161,6 +190,7 @@ func (ur *UserRepo) Put(id string, user *User) error {
 		"age":       user.Age,
 		"gender":    user.Gender,
 		"residance": user.Residance,
+		"code":      user.RegisterCode,
 	}}
 	result, err := usersCollection.UpdateOne(ctx, filter, update)
 	ur.logger.Printf("Documents matched: %v\n", result.MatchedCount)
@@ -169,6 +199,40 @@ func (ur *UserRepo) Put(id string, user *User) error {
 	if err != nil {
 		ur.logger.Println(err)
 		return err
+	}
+	return nil
+}
+
+func (ur *UserRepo) NegateCodePut(code int) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	usersCollection := ur.getCollection()
+	usersFound, err := ur.GetByRegisterCode(code)
+	if err != nil {
+		ur.logger.Println(err)
+		return err
+	}
+	for _, user := range usersFound {
+		user.RegisterCode = 0
+		filter := bson.M{"code": code}
+		update := bson.M{"$set": bson.M{
+			"name":      user.Name,
+			"surname":   user.Surname,
+			"username":  user.Username,
+			"password":  user.Password,
+			"age":       user.Age,
+			"gender":    user.Gender,
+			"residance": user.Residance,
+			"code":      user.RegisterCode,
+		}}
+		result, err := usersCollection.UpdateOne(ctx, filter, update)
+		ur.logger.Printf("Documents matched: %v\n", result.MatchedCount)
+		ur.logger.Printf("Documents updated: %v\n", result.ModifiedCount)
+
+		if err != nil {
+			ur.logger.Println(err)
+			return err
+		}
 	}
 	return nil
 }
@@ -254,4 +318,20 @@ func (ur *UserRepo) GetLoggedUser(s *sessions.Session) string {
 	}
 	user := val.(string)
 	return user
+}
+
+func (ur *UserRepo) SendEmail(code int, email string) error {
+	m := mail.NewMessage()
+	m.SetHeader("From", "tim7projekat@gmail.com")
+	m.SetHeader("To", "markodmaki1999@gmail.com")
+	m.SetHeader("Subject", "Registration Confirmation")
+	m.SetBody("text/plain", "Hello this is your code: "+strconv.Itoa(code)+"\nGo to the localhost:4200/confirm to confirm your account.")
+
+	d := mail.NewDialer("smtp.gmail.com", 587, "tim7projekat@gmail.com", "qxqcanewprbhydkv")
+
+	if err := d.DialAndSend(m); err != nil {
+		panic(err)
+		return err
+	}
+	return nil
 }
